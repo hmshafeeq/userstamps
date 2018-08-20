@@ -1,0 +1,35 @@
+{
+  "name": "velitsol/userstamps",
+  "description": "Provides an eloquent trait to automatically users responsible for certain actions.",
+  "type": "library",
+  "license": "MIT",
+  "keywords": [
+    "laravel",
+    "eloquent",
+    "userstamps",
+    "created_by",
+    "updated_by"
+  ],
+  "authors": [
+    {
+      "name": "Muhammad Shafeeq",
+      "email": "hmshafeeq@gmail.com"
+    }
+  ],
+  "require": {
+    "php": ">=5.6.0",
+    "illuminate/support" : "5.*"
+  },
+  "autoload": {
+    "psr-4": {
+      "VelitSol\\UserStamps\\": "src/"
+    }
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "VelitSol\\UserStamps\\UserStampServiceProvider"
+      ]
+    }
+  }
+}
