@@ -1,6 +1,6 @@
 {
   "name": "velitsol/userstamps",
-  "description": "Provides an eloquent trait to automatically users responsible for certain actions.",
+  "description": "A simple package to load userstamps for a model, it provides an eloquent trait to automatically load users responsible for certain actions on a model.",
   "type": "library",
   "license": "MIT",
   "keywords": [
