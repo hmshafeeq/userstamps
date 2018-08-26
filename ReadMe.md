@@ -4,7 +4,7 @@
 [![GitHub forks](https://img.shields.io/github/forks/hmshafeeq/userstamps.svg)](https://github.com/hmshafeeq/userstamps/network)
 [![GitHub stars](https://img.shields.io/github/stars/hmshafeeq/userstamps.svg)](https://github.com/hmshafeeq/userstamps/stargazers)
 
-### A simple package to load userstamps for a model
+### A simple package to load & insert userstamps for a model
 
 ## Requirements
 
