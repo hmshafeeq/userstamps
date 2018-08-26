@@ -6,25 +6,14 @@ namespace VelitSol\UserStamps;
 trait UserStampTrait
 {
     // Contains the userstamp fields which depend on a model event
-    private $dependsOnEvent = [];
-    // Contains the userstamp fields which depend on a some other field ( which should be dirty in this case )
-    private $dependsOnField = [];
     // Contains the userstamp fields which depends upon certain expressions
-    private $dependsOnExpression = [];
+    // Contains the userstamp fields which depend on a some other field ( which should be dirty in this case )
+    private $userstampsToInsert = [];
+
 
     public static function bootUserStampTrait()
     {
         $self = new static();
-
-        if (!empty($self->userStamps)) {
-            foreach ($self->userStamps as $k => $v) {
-                if (is_array($v)) {
-                    if (isset($v['depends_on_event'])) $self->dependsOnEvent[$k] = $v['depends_on_event'];
-                    if (isset($v['depends_on_field'])) $self->dependsOnField[$k] = $v['depends_on_field'];
-                    if (isset($v['depends_on_expression'])) $self->dependsOnExpression[$k] = $v['depends_on_expression'];
-                }
-            }
-        }
 
         static::creating(function ($model) use ($self) {
             $self->setUserstampOnModel($model, 'creating');
@@ -35,7 +24,9 @@ trait UserStampTrait
         });
 
         static::saving(function ($model) use ($self) {
-            $self->setUserstampOnModel($model, 'saving');
+            if (!empty($model->id)) {
+                $self->setUserstampOnModel($model, 'saving');
+            }
         });
 
         static::deleting(function ($model) use ($self) {
@@ -56,34 +47,51 @@ trait UserStampTrait
     {
         $loggedInUserId = auth()->id();
 
-        if (!empty($eventName) && !empty($this->dependsOnEvent)) {
-            // associate the logged in user id if userstamp depends upon the event
-            foreach ($this->dependsOnEvent as $fieldName => $eName) {
-                if ($eName == $eventName) {
-                    $model->{$fieldName} = $loggedInUserId;
-                }
-            }
-        } else if (!empty($this->dependsOnField)) {
-            // associate the logged in user id if userstamp depend the change in some other field
-            foreach ($this->dependsOnField as $fieldName => $fName) {
-                if ($model->isDirty($fName)) {
-                    $model->{$fieldName} = $loggedInUserId;
-                }
-            }
-        } else if (!empty($this->dependsOnExpression)) {
-            // associate the logged in user id if userstamp depends upon certain expression
-            foreach ($this->dependsOnExpression as $fieldName => $expression) {
-                $modelArray = $model->toArray();
-                foreach (array_keys($modelArray) as $key) {
-                    $expression = str_replace('$' . $key, !empty($modelArray[$key]) ? $modelArray[$key] : null, $expression);
-                }
-                $expression = "return " . $expression . ";";
-                if (eval($expression)) {
-                    $model->{$fieldName} = $loggedInUserId;
+        if (!empty($this->userStamps)) {
+            foreach ($this->userStamps as $fieldName => $userstamp) {
+                if (is_array($userstamp) && count($userstamp) > 0) {
+                    if (count($userstamp) == 1 && !empty($userstamp['depends_on_event']) && $userstamp['depends_on_event'] == $eventName) {
+                        $model->{$fieldName} = $loggedInUserId;
+                    } else {
+                        // check if no event specified along with field name
+                        // or if event is specified then it should match the type event invoked
+                        $isEventMatched = (empty($userstamp['depends_on_event']) || (!empty($userstamp['depends_on_event']) ? $userstamp['depends_on_event'] == $eventName : false));
+                        if ($isEventMatched) {
+                            $isFieldDirty = false;
+                            if (!empty($userstamp['depends_on_field'])) {
+                                $isFieldDirty = $model->isDirty($userstamp['depends_on_field']);
+                            }
+
+                            $isExpressionTrue = false;
+                            if (!empty($userstamp['depends_on_expression'])) {
+                                $expression = $userstamp['depends_on_expression'];
+                                // parse the expression
+                                $modelArray = $model->toArray();
+                                foreach (array_keys($modelArray) as $key) {
+                                    if (empty($modelArray[$key]) || (!is_array($modelArray[$key]) && !is_object($modelArray[$key]))) {
+                                        $expression = str_replace('$' . $key, !empty($modelArray[$key]) ? $modelArray[$key] : null, $expression);
+                                    }
+                                }
+                                $expression = "return " . $expression . ";";
+                                $isExpressionTrue = false;
+                                try {
+                                    $isExpressionTrue = eval($expression);
+                                } catch (\Exception $e) {
+                                }
+                            }
+
+                            if (!empty($userstamp['depends_on_expression']) && !empty($userstamp['depends_on_field'])) {
+                                if ($isFieldDirty && $isExpressionTrue) {
+                                    $model->{$fieldName} = $loggedInUserId;
+                                }
+                            } elseif ($isFieldDirty || $isExpressionTrue) {
+                                $model->{$fieldName} = $loggedInUserId;
+                            }
+                        }
+                    }
                 }
             }
         }
-
     }
 
     /***
