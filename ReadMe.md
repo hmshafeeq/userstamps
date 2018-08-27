@@ -60,6 +60,9 @@ class Example extends Model {
        'created_by' => [
             'depends_on_event' => 'creating', 
        ],
+       'deleted_by' => [
+             'depends_on_event' => 'deleting', 
+       ],
        
        // This userstamp should be set if "is_archived" is dirty (has some changes in value)
        'archived_by' => [
@@ -94,7 +97,38 @@ $model->submittedBy;
 $model->suspendedBy;
 ```
 
+##Simpler Example
+````
+namespace App\Models;
 
+use Illuminate\Database\Eloquent\Model;
+
+use Illuminate\Database\Eloquent\SoftDeletes;
+use VelitSol\UserStamps\UserStampTrait;
+
+class Invoice extends Model
+{
+
+    use SoftDeletes;
+    use UserStampTrait;
+
+
+    protected $userStamps = [
+        'created_by' => [
+            'depends_on_event' => 'creating'
+        ],
+        'updated_by' => [
+            'depends_on_event' => 'saving',
+            "depends_on_expression" => '$ww_inv > 10'
+        ],
+        'deleted_by' => [
+            'depends_on_event' => 'deleting',
+        ]
+    ];
+    .........
+    .........
+}
+````
 ## License
 
 This open-source software is licensed under the [MIT license](https://opensource.org/licenses/MIT).
