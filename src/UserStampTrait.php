@@ -10,27 +10,33 @@ trait UserStampTrait
     // Contains the userstamp fields which depend on a some other field ( which should be dirty in this case )
     private $userstampsToInsert = [];
 
+    // events to capture
+    protected static $CREATING = 'creating';
+    protected static $SAVING = 'saving';
+    protected static $UPDATING = 'updating';
+    protected static $DELETING = 'deleting';
 
     public static function bootUserStampTrait()
     {
         $self = new static();
 
         static::creating(function ($model) use ($self) {
-            $self->setUserstampOnModel($model, 'creating');
+            $self->setUserstampOnModel($model, self::$CREATING);
         });
 
         static::updating(function ($model) use ($self) {
-            $self->setUserstampOnModel($model, 'updating');
+            $self->setUserstampOnModel($model, self::$UPDATING);
         });
 
         static::saving(function ($model) use ($self) {
             if (!empty($model->id)) {
-                $self->setUserstampOnModel($model, 'saving');
+                $self->setUserstampOnModel($model, self::$SAVING);
             }
         });
 
         static::deleting(function ($model) use ($self) {
-            $self->setUserstampOnModel($model, 'deleting');
+            dd($model);
+            $self->setUserstampOnModel($model, self::$DELETING);
         });
 
     }
@@ -89,10 +95,22 @@ trait UserStampTrait
                             }
                         }
                     }
+
+                    // In case of userstamp for a model which is being soft deleted, we need to save it first.
+                    if ($eventName == self::$DELETING && $this->isSoftDeleteEnabled() && !empty($model->{$fieldName})) {
+                        $model->save();
+                    }
                 }
             }
         }
     }
+
+    public function isSoftDeleteEnabled()
+    {
+        // ... check if 'this' model uses the soft deletes trait
+        return in_array('Illuminate\Database\Eloquent\SoftDeletes', class_uses($this)) && !$this->forceDeleting;
+    }
+
 
     /***
      * Get userstamp field names from the userstamp array
