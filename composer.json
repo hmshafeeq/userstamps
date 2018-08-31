@@ -22,13 +22,13 @@
   },
   "autoload": {
     "psr-4": {
-      "VelitSol\\UserStamps\\": "src/"
+      "VelitSol\\Userstamps\\": "src/"
     }
   },
   "extra": {
     "laravel": {
       "providers": [
-        "VelitSol\\UserStamps\\UserStampServiceProvider"
+        "VelitSol\\Userstamps\\UserstampServiceProvider"
       ]
     }
   }

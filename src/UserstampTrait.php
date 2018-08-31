@@ -1,9 +1,9 @@
 <?php
 
-namespace VelitSol\UserStamps;
+namespace VelitSol\Userstamps;
 
 
-trait UserStampTrait
+trait UserstampTrait
 {
     // Contains the userstamp fields which depend on a model event
     // Contains the userstamp fields which depends upon certain expressions
@@ -52,8 +52,8 @@ trait UserStampTrait
     {
         $loggedInUserId = auth()->id();
 
-        if (!empty($this->userStamps)) {
-            foreach ($this->userStamps as $fieldName => $userstamp) {
+        if (!empty($this->userstamps)) {
+            foreach ($this->userstamps as $fieldName => $userstamp) {
                 if (is_array($userstamp) && count($userstamp) > 0) {
                     if (count($userstamp) == 1 && !empty($userstamp['depends_on_event']) && $userstamp['depends_on_event'] == $eventName) {
                         $model->{$fieldName} = $loggedInUserId;
@@ -117,7 +117,7 @@ trait UserStampTrait
      */
     public function getUserStampFields()
     {
-        return collect($this->userStamps)->map(function ($v, $k) {
+        return collect($this->userstamps)->map(function ($v, $k) {
             return is_array($v) ? $k : $v;
         })->values()->toArray();
     }
@@ -144,7 +144,7 @@ trait UserStampTrait
     {
 
         if ($method == 'hydrate') {
-            if (count($parameters) > 0 && !empty($this->userStamps)) {
+            if (count($parameters) > 0 && !empty($this->userstamps)) {
                 $userStampFields = $this->getUserStampFields();
                 // get users ids
                 $userIds = collect($parameters[0])->map(function ($parameter) use ($userStampFields) {
@@ -159,8 +159,7 @@ trait UserStampTrait
                 collect($parameters[0])->each(function ($parameter) use ($users, $userStampFields) {
                     foreach ($userStampFields as $userStamp) {
                         if (!empty($parameter->{$userStamp})) {
-                            $parameter->{$this->getRelationName($userStamp)} = $users->where('id', $parameter->{$userStamp})->count() > 0 ?
-                                (array)$users->where('id', $parameter->{$userStamp})->first() : [];
+                            $parameter->{$this->getRelationName($userStamp)} = $users->where('id', $parameter->{$userStamp})->first();
                         }
                     }
                 });

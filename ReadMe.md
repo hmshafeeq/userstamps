@@ -24,7 +24,7 @@ Step 2: Add the Service Provider
 
 'providers' => [
     '...',
-     VelitSol\UserStamps\UserStampServiceProvider::class
+     VelitSol\Userstamps\UserstampServiceProvider::class
 ];
 ```
  
@@ -33,13 +33,13 @@ Step 2: Add the Service Provider
 Load the trait in your model and see the magic. 
 
 ```php
-use VelitSol\UserStamps\UserStampTrait;
+use VelitSol\Userstamps\UserstampTrait;
 
 class Example extends Model {
 
-    use UserStampTrait;
+    use UserstampTrait;
      
-    protected $userStamps = [
+    protected $userstamps = [
        
        /==============================================
        /  Auto load userstamp model for current model.
@@ -104,16 +104,16 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 
 use Illuminate\Database\Eloquent\SoftDeletes;
-use VelitSol\UserStamps\UserStampTrait;
+use VelitSol\Userstamps\UserstampTrait;
 
 class Invoice extends Model
 {
 
     use SoftDeletes;
-    use UserStampTrait;
+    use UserstampTrait;
 
 
-    protected $userStamps = [
+    protected $userstamps = [
         'created_by' => [
             'depends_on_event' => 'creating'
         ],
