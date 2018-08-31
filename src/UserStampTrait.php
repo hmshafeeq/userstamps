@@ -35,7 +35,6 @@ trait UserStampTrait
         });
 
         static::deleting(function ($model) use ($self) {
-            dd($model);
             $self->setUserstampOnModel($model, self::$DELETING);
         });
 
