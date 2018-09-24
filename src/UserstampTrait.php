@@ -69,22 +69,16 @@ trait UserstampTrait
 
                             $isExpressionTrue = false;
                             if (!empty($userstamp['depends_on_expression'])) {
+
                                 $expression = $userstamp['depends_on_expression'];
-                                // parse the expression
-                                $modelArray = $model->toArray();
-                                foreach (array_keys($modelArray) as $key) {
-                                    if (empty($modelArray[$key]) || (!is_array($modelArray[$key]) && !is_object($modelArray[$key]))) {
-                                        $expression = str_replace('$' . $key, !empty($modelArray[$key]) ? $modelArray[$key] : null, $expression);
-                                    }
+                                $pattern = '/\$([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)/';
+                                $matchCount = preg_match_all($pattern, $expression, $matches);
+                                for ($i = 0; $i < $matchCount; $i++) {
+                                    $expression = str_replace($matches[0][$i], '"' . (empty($model->{$matches[1][$i]}) ? null : $model->{$matches[1][$i]}) . '"', $expression);
                                 }
                                 $expression = "return " . $expression . ";";
-                                $isExpressionTrue = false;
-                                try {
-                                    $isExpressionTrue = eval($expression);
-                                } catch (\Exception $e) {
-                                }
+                                $isExpressionTrue = eval($expression);
                             }
-
                             if (!empty($userstamp['depends_on_expression']) && !empty($userstamp['depends_on_field'])) {
                                 if ($isFieldDirty && $isExpressionTrue) {
                                     $model->{$fieldName} = $loggedInUserId;
