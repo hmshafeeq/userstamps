@@ -148,12 +148,12 @@ trait UserstampTrait
                 })->unique()->toArray();
 
                 $users = \DB::table(app($this->getUserClass())
-                    ->getTable())->whereIn('id', $userIds)->get();
+                    ->getTable())->whereIn($this->primaryKey, $userIds)->get();
                 // associate users with relavent fields
                 collect($parameters[0])->each(function ($parameter) use ($users, $userStampFields) {
                     foreach ($userStampFields as $userStamp) {
                         if (!empty($parameter->{$userStamp})) {
-                            $parameter->{$this->getRelationName($userStamp)} = $users->where('id', $parameter->{$userStamp})->first();
+                            $parameter->{$this->getRelationName($userStamp)} = $users->where($this->primaryKey, $parameter->{$userStamp})->first();
                         }
                     }
                 });
