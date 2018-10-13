@@ -151,8 +151,8 @@ trait UserstampTrait
                     return $ustamps;
                 })->unique()->toArray();
 
-                $users = \DB::table(app($this->getUserClass())
-                    ->getTable())->whereIn($this->primaryKey, $userIds)->get();
+                $users =  app($this->getUserClass())->whereIn($this->primaryKey, $userIds)->get();
+
                 // associate users with relavent fields
                 collect($parameters[0])->each(function ($parameter) use ($users, $userStampFields) {
                     foreach ($userStampFields as $userStamp) {
