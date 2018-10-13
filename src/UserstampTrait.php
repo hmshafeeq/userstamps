@@ -141,10 +141,14 @@ trait UserstampTrait
             if (count($parameters) > 0 && !empty($this->userstamps)) {
                 $userStampFields = $this->getUserStampFields();
                 // get users ids
-                $userIds = collect($parameters[0])->map(function ($parameter) use ($userStampFields) {
+                $userIds = collect($parameters[0])->flatMap(function ($parameter) use ($userStampFields) {
+                    $ustamps = [];
                     foreach ($userStampFields as $userStamp) {
-                        if (!empty($parameter->{$userStamp})) return $parameter->{$userStamp};
+                        if (!empty($parameter->{$userStamp})) {
+                            $ustamps[] = $parameter->{$userStamp};
+                        }
                     }
+                    return $ustamps;
                 })->unique()->toArray();
 
                 $users = \DB::table(app($this->getUserClass())
@@ -153,7 +157,8 @@ trait UserstampTrait
                 collect($parameters[0])->each(function ($parameter) use ($users, $userStampFields) {
                     foreach ($userStampFields as $userStamp) {
                         if (!empty($parameter->{$userStamp})) {
-                            $parameter->{$this->getRelationName($userStamp)} = $users->where($this->primaryKey, $parameter->{$userStamp})->first();
+                            $s = $users->where($this->primaryKey, $parameter->{$userStamp})->first();
+                            $parameter->{$this->getRelationName($userStamp)} = $s;
                         }
                     }
                 });
