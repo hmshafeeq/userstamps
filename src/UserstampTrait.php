@@ -136,7 +136,6 @@ trait UserstampTrait
      */
     public function __call($method, $parameters)
     {
-
         if ($method == 'hydrate') {
             if (count($parameters) > 0 && !empty($this->userstamps)) {
                 $userStampFields = $this->getUserStampFields();
@@ -163,7 +162,6 @@ trait UserstampTrait
                     }
                 });
             }
-
         }
 
         if (method_exists($this, '__callAfter')) {
