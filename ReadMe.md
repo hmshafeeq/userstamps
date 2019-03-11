@@ -32,6 +32,8 @@ Step 2: Add the Service Provider
 
 Load the trait in your model and see the magic. 
 
+#### Scenario 1 : Load Userstamps For A Model 
+You can configure this package to autoload the userstamp along with your model. This will be the case when userstamp is being set in controller or some where else manually.
 ```php
 use VelitSol\Userstamps\UserstampTrait;
 
@@ -40,37 +42,56 @@ class Example extends Model {
     use UserstampTrait;
      
     protected $userstamps = [
-       
-       /==============================================
-       /  Auto load userstamp model for current model.
-       /==============================================
-       // If you don't want this pacakge to auto insert the userstamp, and you just want to autoload it along with your model
-       // This will be the case when userstamp is being set in controller or some where else at certain action.
+       'created_by',
        'updated_by',
+       'submitted_by',
+       'deleted_by' 
+    ];
+}
+```
+
+The following relations will be loaded automatically with the model in this case. 
+```php
+$model->createdBy;  
+$model->updatedBy;   
+$model->submittedBy; 
+$model->deletedBy;
+```
+
+#### Scenario 2 : Insert & Load Userstamps For A Model
+You can configure this package to handle the userstamp insertion behind the scenes. This will also load those userstamps when you will fetch the records with eloquent.  
+Auto insert will depend on,
+1. Event ('creating', 'saving', 'updating', 'deleting')
+2. Field 
+3. Expression
+```php
+use VelitSol\Userstamps\UserstampTrait;
+
+class Example extends Model {
+
+    use UserstampTrait;
      
-      /=========================================================
-      /  Auto insert userstamp & auto load it for current model.
-      /  Auto insert depends on,
-      /  1. Event ('creating','saving','updating','deleting')
-      /  2. Field 
-      /  3. Expression
-      /=========================================================
-          
-       // This userstamp should be updated when an event is invoked i.e 'creating','updating','deleting','saving'.
+    protected $userstamps = [
+       // This userstamp should be set when 'creating' event is invoked.
        'created_by' => [
             'depends_on_event' => 'creating', 
+       ],
+       // This userstamp should be set when 'creating' or 'updating' event is invoked.
+       // This is an example, if a userstamp depends on multiple events
+       'updated_by' => [
+            'depends_on_event' => ['creating', 'updating'], 
        ],
        'deleted_by' => [
              'depends_on_event' => 'deleting', 
        ],
        
-       // This userstamp should be set if "is_archived" is dirty (has some changes in value)
+       // This userstamp should be set if "is_archived" is dirty (has some change in value)
        'archived_by' => [
             'depends_on_field' => 'is_archived' 
        ],
        
        // This userstamp should be set if "updating" event is invoked on this model,
-       // and "is_submitted" is dirty (has some changes in value)
+       // and "is_submitted" is dirty (has some change in value)
        'submitted_by'=> [
             'depends_on_event' => 'updating', 
             'depends_on_field' => 'is_submitted' 
@@ -88,7 +109,7 @@ class Example extends Model {
 }
 ```
 
-The following objects will be loaded automatically with the model in this case. 
+The following relations will be loaded automatically with the model in this case. 
 ```php
 $model->createdBy;  
 $model->updatedBy;  
@@ -96,39 +117,7 @@ $model->archivedBy;
 $model->submittedBy; 
 $model->suspendedBy;
 ```
-
-##Simpler Example
-````
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Model;
-
-use Illuminate\Database\Eloquent\SoftDeletes;
-use VelitSol\Userstamps\UserstampTrait;
-
-class Invoice extends Model
-{
-
-    use SoftDeletes;
-    use UserstampTrait;
-
-
-    protected $userstamps = [
-        'created_by' => [
-            'depends_on_event' => 'creating'
-        ],
-        'updated_by' => [
-            'depends_on_event' => 'saving',
-            "depends_on_expression" => '$ww_inv > 10'
-        ],
-        'deleted_by' => [
-            'depends_on_event' => 'deleting',
-        ]
-    ];
-    .........
-    .........
-}
-````
+ 
 ## License
 
 This open-source software is licensed under the [MIT license](https://opensource.org/licenses/MIT).

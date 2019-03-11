@@ -55,12 +55,12 @@ trait UserstampTrait
         if (!empty($this->userstamps)) {
             foreach ($this->userstamps as $fieldName => $userstamp) {
                 if (is_array($userstamp) && count($userstamp) > 0) {
-                    if (count($userstamp) == 1 && !empty($userstamp['depends_on_event']) && $userstamp['depends_on_event'] == $eventName) {
+                    if (count($userstamp) == 1 && $this->dependsOnEvent($userstamp, $eventName)) {
                         $model->{$fieldName} = $loggedInUserId;
                     } else {
                         // check if no event specified along with field name
                         // or if event is specified then it should match the type event invoked
-                        $isEventMatched = (empty($userstamp['depends_on_event']) || (!empty($userstamp['depends_on_event']) ? $userstamp['depends_on_event'] == $eventName : false));
+                        $isEventMatched = empty($userstamp['depends_on_event']) || $this->dependsOnEvent($userstamp, $eventName);
                         if ($isEventMatched) {
                             $isFieldDirty = false;
                             if (!empty($userstamp['depends_on_field'])) {
@@ -130,8 +130,8 @@ trait UserstampTrait
      * Override the default __call() method for query builder
      * It dynamically handle calls into the query instance.
      *
-     * @param  string $method
-     * @param  array $parameters
+     * @param string $method
+     * @param array $parameters
      * @return mixed
      */
     public function __call($method, $parameters)
@@ -150,7 +150,7 @@ trait UserstampTrait
                     return $ustamps;
                 })->unique()->toArray();
 
-                $users =  app($this->getUserClass())->whereIn($this->primaryKey, $userIds)->get();
+                $users = app($this->getUserClass())->whereIn($this->primaryKey, $userIds)->get();
 
                 // associate users with relavent fields
                 collect($parameters[0])->each(function ($parameter) use ($users, $userStampFields) {
@@ -189,6 +189,24 @@ trait UserstampTrait
         return auth()->guard()->getProvider()->getModel();
     }
 
+    /**
+     * Check if given userstamp depends on certain event
+     * @param $userstamp
+     * @param $eventName
+     * @return bool
+     */
+    private function dependsOnEvent($userstamp, $eventName)
+    {
+        if (empty($userstamp['depends_on_event'])) {
+            return false;
+        }
+        // if userstamp depends on one or more than one events, i.e provided in array format
+        if (is_array($userstamp['depends_on_event'])) {
+            return in_array($eventName, $userstamp['depends_on_event']);
+        }
+        // if userstamp depends on only one event, provides as string
+        return $userstamp['depends_on_event'] == $eventName;
+    }
 }
 
 
