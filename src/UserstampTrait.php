@@ -89,7 +89,7 @@ trait UserstampTrait
                         }
                     }
 
-                    // In case of userstamp for a model which is being soft deleted, we need to save it first.
+                    // In case of a model, which is being soft deleted, we need to save it with applied userstamp before proceeding.
                     if ($eventName == self::$DELETING && $this->isSoftDeleteEnabled() && !empty($model->{$fieldName})) {
                         $model->save();
                     }
@@ -158,12 +158,8 @@ trait UserstampTrait
                         if (!empty($parameter->{$userstamp})) {
                             // Find the match from user models
                             $s = $users->where($this->primaryKey, $parameter->{$userstamp})->first();
-                        } else {
-                            // Replace null with empty array
-                            // when no relation is found
-                            $s = $this->getUserModel();
+                            $parameter->{$this->getRelationName($userstamp)} = $s;
                         }
-                        $parameter->{$this->getRelationName($userstamp)} = $s;
                     }
                 });
             }
