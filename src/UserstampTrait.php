@@ -109,7 +109,7 @@ trait UserstampTrait
      * Get userstamp field names from the userstamp array
      * @return mixed
      */
-    public function getUserStampFields()
+    public function getUserstampFields()
     {
         return collect($this->userstamps)->map(function ($v, $k) {
             return is_array($v) ? $k : $v;
@@ -136,29 +136,34 @@ trait UserstampTrait
      */
     public function __call($method, $parameters)
     {
-        if ($method == 'hydrate') {
-            if (count($parameters) > 0 && !empty($this->userstamps)) {
-                $userStampFields = $this->getUserStampFields();
+        if ($method == 'hydrate' && !empty($this->userstamps)) {
+            if (count($parameters) > 0) {
+                $userstampFields = $this->getUserstampFields();
                 // get users ids
-                $userIds = collect($parameters[0])->flatMap(function ($parameter) use ($userStampFields) {
+                $userIds = collect($parameters[0])->flatMap(function ($parameter) use ($userstampFields) {
                     $ustamps = [];
-                    foreach ($userStampFields as $userStamp) {
-                        if (!empty($parameter->{$userStamp})) {
-                            $ustamps[] = $parameter->{$userStamp};
+                    foreach ($userstampFields as $userstamp) {
+                        if (!empty($parameter->{$userstamp})) {
+                            $ustamps[] = $parameter->{$userstamp};
                         }
                     }
                     return $ustamps;
                 })->unique()->toArray();
 
-                $users = app($this->getUserClass())->whereIn($this->primaryKey, $userIds)->get();
+                $users = $this->getUserModel()->whereIn($this->primaryKey, $userIds)->get();
 
                 // associate users with relavent fields
-                collect($parameters[0])->each(function ($parameter) use ($users, $userStampFields) {
-                    foreach ($userStampFields as $userStamp) {
-                        if (!empty($parameter->{$userStamp})) {
-                            $s = $users->where($this->primaryKey, $parameter->{$userStamp})->first();
-                            $parameter->{$this->getRelationName($userStamp)} = $s;
+                collect($parameters[0])->each(function ($parameter) use ($users, $userstampFields) {
+                    foreach ($userstampFields as $userstamp) {
+                        if (!empty($parameter->{$userstamp})) {
+                            // Find the match from user models
+                            $s = $users->where($this->primaryKey, $parameter->{$userstamp})->first();
+                        } else {
+                            // Replace null with empty array
+                            // when no relation is found
+                            $s = $this->getUserModel();
                         }
+                        $parameter->{$this->getRelationName($userstamp)} = $s;
                     }
                 });
             }
@@ -187,6 +192,21 @@ trait UserstampTrait
             return auth()->getProvider()->getModel();
         }
         return auth()->guard()->getProvider()->getModel();
+    }
+
+    /**
+     * Get user model which is being used for auth
+     * @return \Illuminate\Foundation\Application|mixed
+     */
+    protected function getUserModel()
+    {
+        $userModel = app($this->getUserClass());
+
+        // Disabled userstamps to avoid recursive calls
+        // when the trait is applied on user model itself
+        $userModel->userstamps = [];
+
+        return $userModel;
     }
 
     /**
