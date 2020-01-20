@@ -5,6 +5,15 @@ namespace VelitSol\Userstamps;
 
 trait UserstampTrait
 {
+
+    /**
+     * Store the relations
+     *
+     * @var array
+     */
+    private static $dynamic_relations = [];
+
+
     // Contains the userstamp fields which depend on a model event
     // Contains the userstamp fields which depends upon certain expressions
     // Contains the userstamp fields which depend on a some other field ( which should be dirty in this case )
@@ -38,6 +47,14 @@ trait UserstampTrait
             $self->setUserstampOnModel($model, self::$DELETING);
         });
 
+        $class = $self->getUserClass();
+        foreach ($self->getUserstampFields() as $field) {
+            $name = $self->getRelationName("{$field}_user");
+            $self->addDynamicRelation($name, function ($self) use ($field, $class) {
+                return $self->belongsTo($class, $field);
+            });
+        }
+
     }
 
     /**
@@ -50,57 +67,93 @@ trait UserstampTrait
      */
     public function setUserstampOnModel(&$model, $eventName = '')
     {
-        $loggedInUserId = auth()->id();
+        foreach ($this->userstamps as $fieldName => $dependsOn) {
+            if (is_array($dependsOn) && count($dependsOn) > 0) {
 
-        if (!empty($this->userstamps)) {
-            foreach ($this->userstamps as $fieldName => $userstamp) {
-                if (is_array($userstamp) && count($userstamp) > 0) {
-                    if (count($userstamp) == 1 && $this->dependsOnEvent($userstamp, $eventName)) {
-                        $model->{$fieldName} = $loggedInUserId;
-                    } else {
-                        // check if no event specified along with field name
-                        // or if event is specified then it should match the type event invoked
-                        $isEventMatched = empty($userstamp['depends_on_event']) || $this->dependsOnEvent($userstamp, $eventName);
-                        if ($isEventMatched) {
-                            $isFieldDirty = false;
-                            if (!empty($userstamp['depends_on_field'])) {
-                                $isFieldDirty = $model->isDirty($userstamp['depends_on_field']);
-                            }
+                $mathes = [
+                    'depends_on_event' => $this->dependsOnEvent($dependsOn, $eventName),
+                    'depends_on_field' => $this->dependsOnField($dependsOn, $model),
+                    'depends_on_expression' => $this->dependsOnExpression($dependsOn, $model)
+                ];
 
-                            $isExpressionTrue = false;
-                            if (!empty($userstamp['depends_on_expression'])) {
+                // check if all given conditions were met.
+                $shouldApplyUserstamp = collect($dependsOn)->every(function ($value, $key) use ($mathes) {
+                    return $mathes[$key];
+                });
 
-                                $expression = $userstamp['depends_on_expression'];
-                                $pattern = '/\$([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)/';
-                                $matchCount = preg_match_all($pattern, $expression, $matches);
-                                for ($i = 0; $i < $matchCount; $i++) {
-                                    $expression = str_replace($matches[0][$i], '"' . (empty($model->{$matches[1][$i]}) ? null : $model->{$matches[1][$i]}) . '"', $expression);
-                                }
-                                $expression = "return " . $expression . ";";
-                                $isExpressionTrue = eval($expression);
-                            }
-                            if (!empty($userstamp['depends_on_expression']) && !empty($userstamp['depends_on_field'])) {
-                                if ($isFieldDirty && $isExpressionTrue) {
-                                    $model->{$fieldName} = $loggedInUserId;
-                                }
-                            } elseif ($isFieldDirty || $isExpressionTrue) {
-                                $model->{$fieldName} = $loggedInUserId;
-                            }
-                        }
-                    }
+                // set userstamp
+                if ($shouldApplyUserstamp) {
+                    $model->{$fieldName} = auth()->id();
+                }
 
-                    // In case of a model, which is being soft deleted, we need to save it with applied userstamp before proceeding.
-                    if ($eventName == self::$DELETING && $this->isSoftDeleteEnabled() && !empty($model->{$fieldName})) {
-                        $model->save();
-                    }
+                // In case of a model, which is being soft deleted, we need to save it with applied userstamp before proceeding.
+                if ($eventName == self::$DELETING && $this->isSoftDeleteEnabled() && !empty($model->{$fieldName})) {
+                    $model->save();
                 }
             }
         }
     }
 
+    /***
+     * Check if given userstamp depends on certain field, and field has been modified.
+     * @param $dependsOn
+     * @param $model
+     * @return bool
+     */
+    private function dependsOnField($dependsOn, $model)
+    {
+        if (empty($dependsOn['depends_on_field']))
+            return false;
+
+        return $model->isDirty($dependsOn['depends_on_field']);
+    }
+
+    /**
+     * Check if given userstamp depends on certain event.
+     * @param $dependsOn
+     * @param $eventName
+     * @return bool
+     */
+    private function dependsOnEvent($dependsOn, $eventName)
+    {
+        if (empty($dependsOn['depends_on_event']))
+            return false;
+
+        // if userstamp depends on one or more than one events, i.e provided in array format
+        if (is_array($dependsOn['depends_on_event'])) {
+            return in_array($eventName, $dependsOn['depends_on_event']);
+        }
+        // if userstamp depends on only one event, provides as string
+        return $dependsOn['depends_on_event'] == $eventName;
+    }
+
+    /***
+     * Check if given userstamp depends on certain expression, and expression evaluates to True.
+     * @param $dependsOn
+     * @param $model
+     * @return bool|mixed
+     */
+    private function dependsOnExpression($dependsOn, $model)
+    {
+        if (empty($dependsOn['depends_on_expression']))
+            return false;
+
+        $expression = $dependsOn['depends_on_expression'];
+        $pattern = '/\$([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)/';
+        $matchCount = preg_match_all($pattern, $expression, $matches);
+        for ($i = 0; $i < $matchCount; $i++) {
+            $expression = str_replace($matches[0][$i], '"' . (empty($model->{$matches[1][$i]}) ? null : $model->{$matches[1][$i]}) . '"', $expression);
+        }
+        $expression = "return " . $expression . ";";
+        return eval($expression);
+    }
+
+    /***
+     *  Check if 'this' model uses the soft deletes trait
+     * @return bool
+     */
     public function isSoftDeleteEnabled()
     {
-        // ... check if 'this' model uses the soft deletes trait
         return in_array('Illuminate\Database\Eloquent\SoftDeletes', class_uses($this)) && !$this->forceDeleting;
     }
 
@@ -116,6 +169,7 @@ trait UserstampTrait
         })->values()->toArray();
     }
 
+
     /**
      * Create a relation name from the given userstamp field name
      * @param $userstamp
@@ -127,59 +181,64 @@ trait UserstampTrait
     }
 
     /**
+     * Add a new relation
+     *
+     * @param $name
+     * @param $closure
+     */
+    public static function addDynamicRelation($name, $closure)
+    {
+        static::$dynamic_relations[$name] = $closure;
+    }
+
+    /**
+     * Determine if a relation exists in dynamic relationships list
+     * @param $name
+     * @return bool
+     */
+    public static function hasDynamicRelation($name)
+    {
+        return array_key_exists($name, static::$dynamic_relations);
+    }
+
+    /**
+     * If the key exists in relations then
+     * return call to relation or else
+     * return the call to the parent
+     * @param $name
+     * @return mixed
+     */
+    public function __get($name)
+    {
+        if (static::hasDynamicRelation($name)) {
+            // check the cache first
+            if ($this->relationLoaded($name)) {
+                return $this->relations[$name];
+            }
+            // load the relationship
+            return $this->getRelationshipFromMethod($name);
+        }
+        return parent::__get($name);
+    }
+
+    /**
      * Override the default __call() method for query builder
      * It dynamically handle calls into the query instance.
-     *
      * @param string $method
      * @param array $parameters
      * @return mixed
      */
     public function __call($method, $parameters)
     {
-        if ($method == 'hydrate' && !empty($this->userstamps)) {
-            if (count($parameters) > 0) {
-                $userstampFields = $this->getUserstampFields();
-                // get users ids
-                $userIds = collect($parameters[0])->flatMap(function ($parameter) use ($userstampFields) {
-                    $ustamps = [];
-                    foreach ($userstampFields as $userstamp) {
-                        if (!empty($parameter->{$userstamp})) {
-                            $ustamps[] = $parameter->{$userstamp};
-                        }
-                    }
-                    return $ustamps;
-                })->unique()->toArray();
-
-                $users = $this->getUserModel()->whereIn($this->primaryKey, $userIds)->get();
-
-                // associate users with relavent fields
-                collect($parameters[0])->each(function ($parameter) use ($users, $userstampFields) {
-                    foreach ($userstampFields as $userstamp) {
-                        if (!empty($parameter->{$userstamp})) {
-                            // Find the match from user models
-                            $s = $users->where($this->primaryKey, $parameter->{$userstamp})->first();
-                            $parameter->{$this->getRelationName($userstamp)} = $s;
-                        }
-                    }
-                });
-            }
+        if (static::hasDynamicRelation($method)) {
+            return call_user_func(static::$dynamic_relations[$method], $this);
         }
-
-        if (method_exists($this, '__callAfter')) {
-            return $this->__callAfter($method, $parameters);
-        }
-
-        // Keep ownder's  ancestor functional
-        if (method_exists(parent::class, '__call')) {
-            return parent::__call($method, $parameters);
-        }
-
-        throw new BadMethodCallException('Method ' . static::class . '::' . $method . '() not found');
+        return parent::__call($method, $parameters);
     }
+
 
     /**
      * Get the class being used to provide a User.
-     *
      * @return string
      */
     protected function getUserClass()
@@ -190,39 +249,19 @@ trait UserstampTrait
         return auth()->guard()->getProvider()->getModel();
     }
 
-    /**
-     * Get user model which is being used for auth
-     * @return \Illuminate\Foundation\Application|mixed
-     */
-    protected function getUserModel()
-    {
-        $userModel = app($this->getUserClass());
-
-        // Disabled userstamps to avoid recursive calls
-        // when the trait is applied on user model itself
-        $userModel->userstamps = [];
-
-        return $userModel;
-    }
 
     /**
-     * Check if given userstamp depends on certain event
-     * @param $userstamp
-     * @param $eventName
-     * @return bool
+     * Model scope to load userstamp relations like Model:withUserstamps()->get()
+     * @param $query
+     * @return mixed
      */
-    private function dependsOnEvent($userstamp, $eventName)
+    public function scopeWithUserstamps($query)
     {
-        if (empty($userstamp['depends_on_event'])) {
-            return false;
-        }
-        // if userstamp depends on one or more than one events, i.e provided in array format
-        if (is_array($userstamp['depends_on_event'])) {
-            return in_array($eventName, $userstamp['depends_on_event']);
-        }
-        // if userstamp depends on only one event, provides as string
-        return $userstamp['depends_on_event'] == $eventName;
+        $query->with(array_keys(static::$dynamic_relations));
+        return $query;
     }
+
+
 }
 
 
